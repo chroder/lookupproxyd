@@ -62,8 +62,8 @@ func (s *Service) Lookup(req *http.Request) (*lookup.Result, error) {
 		}
 	}
 
-	if err == nil {
-		return res, nil
+	if err != nil {
+		return nil, err
 	}
 
 	return res, nil
