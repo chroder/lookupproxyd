@@ -13,11 +13,11 @@ conjunction with a node balancing server like Amazon's ALB that can balance requ
 
 (The front ELB in this example is just for HA on lookupproxyd servers.)
 
-At the time of this writing, ALB can only route based on `Host` or the path of the request. This proxy lets you
-modify the `Host` to add routing information to the request, so then `ALB` can go ahead and proxy it.
+Using this proxy you can re-write the host, path or port of the request so enable intelligent routing to your
+backend cluster.
 
 ```
-in -> foo.example.com -> lookupproxyd -> v1.foo.example.com -> ALB -> v1 cluster
+in -> foo.example.com:80 -> lookupproxyd -> foo.example.com:{ -> ALB -> v1 cluster
 ```
 
 ## Example Usage
@@ -60,10 +60,11 @@ GLOBAL OPTIONS:
    --listen value, -i value         The address to listen on. E.g. :8100 or 1.2.3.4:8100 for a particular interface (default: ":8100")
    --redis-host value, -r value     The Redis host. E.g. 1.2.3.4:6379
    --redis-auth value, -a value     If the Redis server requires auth
-   --target-host value, -t value    The target host to forward to. E.g. 1.2.3.4:80. (Note: Not a URL; don't enter protocol).
+   --target-host value, -t value    The target host to forward to. E.g. 1.2.3.4:80. This is a template can variables can be used. E.g. 1.2.3.4:{{.Lookup.XXX}}. Note: Not a URL; don't enter protocol.
    --target-scheme value, -m value  The target scheme to use (http or https). (default: "http")
    --log-level value, -l value      Specify: debug, info, warning, error, fatal, panic (default: "warning")
    --rewrite-host value, -w value   Specify a template to rewrite the Host as. The provided host will be in {{.Request.Host}} and data from the lookup in {{.Lookup.XXX}}. If you do not specify a value, no host rewrite will happen.
+   --rewrite-path value, -p value   Specify a template to rewrite the Path as. The provided path will be in {{.Request.URL.Path}} and data from the lookup in {{.Lookup.XXX}}. If you do not specify a value, no path rewrite will happen.
    --send-keys value, -s value      Specify a list of keys to send in the X-header (JSON encoded). If none provided, or the keys don't exist in the lookup, no X-header will be sent.
    --send-header value, -x value    Specify the name of the X-header to send values in. (default: "X-Lookup")
    --trust-upstream, -u             Set this to trust the upstream host (trusts X-Forwarded headers and passes them on). (default: false)

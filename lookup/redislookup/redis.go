@@ -3,6 +3,7 @@ package redislookup
 import (
 	"github.com/garyburd/redigo/redis"
 	"time"
+	"net"
 	"net/http"
 	"encoding/json"
 	"sync"
@@ -73,7 +74,14 @@ func (s *Service) doLookup(req *http.Request) (*lookup.Result, error) {
 	conn := s.pool.Get()
 	defer conn.Close()
 
-	key := "domain:" + req.Host
+	host, _, err := net.SplitHostPort(req.Host)
+
+	if err != nil {
+		log.WithFields(log.Fields{"host": req.Host}).Info("Invalid host")
+		return nil, nil
+	}
+
+	key := "domain:" + host
 	v, err := conn.Do("GET", key)
 
 	if err != nil {
@@ -84,6 +92,7 @@ func (s *Service) doLookup(req *http.Request) (*lookup.Result, error) {
 	}
 
 	if v == nil {
+		log.WithFields(log.Fields{"key": key}).Info("Lookup returned nothing")
 		return nil, nil
 	}
 

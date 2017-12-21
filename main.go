@@ -27,16 +27,35 @@ func run(c *cli.Context) error {
 
 	fmt.Println("[lookupproxyd] Starting...")
 	fmt.Printf("[lookupproxyd] Listening on \t%s\n", c.String("listen"))
-	fmt.Printf("[lookupproxyd] Proxying to  \t%s (%s)\n", c.String("target-host"), c.String("target-scheme"))
 	fmt.Printf("[lookupproxyd] Redis host   \t%s\n", c.String("redis-host"))
 
-	var tpl *template.Template
+	fmt.Printf("[lookupproxyd] Proxying to  \t%s (%s)\n", c.String("target-host"), c.String("target-scheme"))
+
+	var targetHostTpl *template.Template
+	fmt.Printf("[lookupproxyd] Target pattern  \t%s\n", c.String("target-host"))
+	targetHostTpl, err = template.New("target-host").Parse(c.String("target-host"))
+	if err != nil {
+		println(err.Error())
+		return cli.Exit("The target host template you entered is invalid", 21)
+	}
+
+	var hostTpl *template.Template
 	if c.String("rewrite-host") != "" {
 		fmt.Printf("[lookupproxyd] Host pattern  \t%s\n", c.String("rewrite-host"))
-		tpl, err = template.New("rewrite-host").Parse(c.String("rewrite-host"))
+		hostTpl, err = template.New("rewrite-host").Parse(c.String("rewrite-host"))
 		if err != nil {
 			println(err.Error())
 			return cli.Exit("The host template you entered is invalid", 21)
+		}
+	}
+
+	var pathTpl *template.Template
+	if c.String("rewrite-path") != "" {
+		fmt.Printf("[lookupproxyd] Path pattern  \t%s\n", c.String("rewrite-path"))
+		pathTpl, err = template.New("rewrite-host").Parse(c.String("rewrite-path"))
+		if err != nil {
+			println(err.Error())
+			return cli.Exit("The path template you entered is invalid", 21)
 		}
 	}
 
@@ -47,12 +66,13 @@ func run(c *cli.Context) error {
 	}
 
 	handler := lookup.NewRequestHandler(&lookup.Config{
-		Service:      service,
-		HeaderName:   c.String("send-header"),
-		SendKeys:     c.StringSlice("send-keys"),
-		HostTemplate: tpl,
-		TargetHost:   c.String("target-host"),
-		TargetScheme: c.String("target-scheme"),
+		Service:            service,
+		HeaderName:         c.String("send-header"),
+		SendKeys:           c.StringSlice("send-keys"),
+		HostTemplate:       hostTpl,
+		PathTemplate:       pathTpl,
+		TargetHostTemplate: targetHostTpl,
+		TargetScheme:       c.String("target-scheme"),
 	})
 
 	s := &http.Server{
@@ -154,7 +174,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "target-host",
 				Aliases: []string{"t"},
-				Usage:   "The target host to forward to. E.g. 1.2.3.4:80. (Note: Not a URL; don't enter protocol).",
+				Usage:   "The target host to forward to. E.g. 1.2.3.4:80. This is a template can variables can be used. E.g. 1.2.3.4:{{.Lookup.XXX}}. Note: Not a URL; don't enter protocol.",
 			},
 			&cli.StringFlag{
 				Name:    "target-scheme",
@@ -173,6 +193,12 @@ func main() {
 				Value:   "",
 				Aliases: []string{"w"},
 				Usage:   "Specify a template to rewrite the Host as. The provided host will be in {{.Request.Host}} and data from the lookup in {{.Lookup.XXX}}. If you do not specify a value, no host rewrite will happen.",
+			},
+			&cli.StringFlag{
+				Name:    "rewrite-path",
+				Value:   "",
+				Aliases: []string{"p"},
+				Usage:   "Specify a template to rewrite the Path as. The provided path will be in {{.Request.URL.Path}} and data from the lookup in {{.Lookup.XXX}}. If you do not specify a value, no path rewrite will happen.",
 			},
 			&cli.StringSliceFlag{
 				Name:    "send-keys",

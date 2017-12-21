@@ -23,7 +23,8 @@ type Config struct {
 	HeaderName string
 	SendKeys []string
 	HostTemplate *template.Template
-	TargetHost string
+	PathTemplate *template.Template
+	TargetHostTemplate *template.Template
 	TargetScheme string
 }
 
@@ -101,9 +102,22 @@ func NewRequestHandler(config *Config) http.HandlerFunc {
 			req.Header.Set("Host", req.Host)
 		}
 
+		buf := new(bytes.Buffer)
+		config.TargetHostTemplate.Execute(buf, &tpldata{req, result.Values})
+		targetHost := buf.String()
+
 		newUrl := req.URL
-		newUrl.Host = config.TargetHost
+		newUrl.Host = targetHost
 		newUrl.Scheme = config.TargetScheme
+
+		if config.PathTemplate != nil {
+			buf := new(bytes.Buffer)
+			config.PathTemplate.Execute(buf, &tpldata{req, result.Values})
+			newPath := buf.String()
+
+			newUrl.Path = newPath
+		}
+
 		req.URL = newUrl
 
 		fwd.ServeHTTP(w, req)
